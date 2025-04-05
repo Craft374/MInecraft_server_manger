@@ -1,10 +1,21 @@
-# version.txt 파일의 내용을 줄 단위 리스트로 저장
-with open("version.txt", "r", encoding="utf-8") as f:
-    versions = [line.strip() for line in f.readlines()]
-
-# 사용자 입력과 비교
-user_input = input("버전을 입력하세요: ").strip()
-if user_input in versions:
-    print("통과")
+8 16 17 21
+jdk_ver = 0
+win = True
+if win:
+    if jdk_ver == 8:
+        java_path = os.path.expanduser(f"~/Documents/Minecraft_server/jdk/jdk{str(jdk_ver)}/")
+    elif jdk_ver == 16:
+        java_path = os.path.expanduser(f"~/Documents/Minecraft_server/jdk/jdk{str(jdk_ver)}/")
+    elif jdk_ver == 17:
+        java_path = os.path.expanduser(f"~/Documents/Minecraft_server/jdk/jdk{str(jdk_ver)}/")
+    elif jdk_ver == 21:
+        java_path = os.path.expanduser(f"~/Documents/Minecraft_server/jdk/jdk{str(jdk_ver)}/")
 else:
-    print("빠꾸")
+    if jdk_ver == 8:
+        java_path = os.path.expanduser(f"~/Documents/Minecraft_server/jdk/jdk8/jdk1.8.0_442.jdk/Contents/Home/bin/java")
+    elif jdk_ver == 16:
+        java_path = os.path.expanduser(f"~/Documents/Minecraft_server/jdk/jdk16/Contents/Home/bin/java")
+    elif jdk_ver == 17:
+        java_path = os.path.expanduser(f"~/Documents/Minecraft_server/jdk/jdk17/jdk-17.0.14.jdk/Contents/Home/bin/java")
+    elif jdk_ver == 21:
+        java_path = os.path.expanduser(f"~/Documents/Minecraft_server/jdk/jdk{str(jdk_ver)}/")
