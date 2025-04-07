@@ -3,13 +3,10 @@ import webbrowser
 import time
 import requests
 from urllib.parse import urlsplit
-from os.path import basename
-from urllib3.util import assert_fingerprint
 import shutil
 import tarfile
-import subprocess
 import sys
-
+server_list_folder = os.getcwd()
 os.makedirs(os.path.expanduser("~/Documents/Minecraft_server"), exist_ok=True)
 jdk_folder_path = os.path.expanduser(f"~/Documents/Minecraft_server/jdk")
 os.makedirs(jdk_folder_path, exist_ok=True)
@@ -107,6 +104,7 @@ def server_download():
     global jdk_url, jdk_ver, jdk_file_type_tar
     jdk_file_type_tar = False
     clear()
+    os.chdir(server_list_folder)
     with open(resource_path("version.txt"), "r", encoding="utf-8") as f:
         versions = [line.strip() for line in f]
     while True:
@@ -216,7 +214,7 @@ def server_download():
         for chunk in response.iter_content(chunk_size=8192):
             file.write(chunk)
 
-    print(f"파일이 {file_path}에 저장되었습니다!\n")
+    print(f"파일이 {file_path}에 저장되었습니다!")
     print("서버 실행")
     if win:
         if jdk_ver == 8:
@@ -240,7 +238,32 @@ def server_download():
     f.write("eula=true")
     f.close()
     os.chdir(f"{os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}")
-    os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}/server.jar")
+    if server_type == "forge":
+        os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}/server.jar --installServer {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}")
+        if win:
+            path = os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}/run.bat")
+        else:
+            path = os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}/run.sh")
+        with open(path, 'r') as f:
+            lines = f.readlines()
+        line_split = lines[5].split(' ')
+        line_split[0] = java_path  # java를 java_path로 교체
+        lines[5] = ' '.join(line_split)
+        with open(path, 'w') as f:
+            f.writelines(lines)
+        if win:
+            os.system("run.bat")
+        else:
+            os.system("./run.sh")
+        print("\n\n")
+    else:
+        print("3초후 서버가 열립니다. 만약 server.properties를 수정하고 싶은 경우 서버가 완전히 열린후 stop으로 서버를 정지한 뒤 수정해주세요")
+        time.sleep(3)
+        if win:
+            os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}\\{server_type}\\{text_ver}\\{text_name}\\server.jar")
+        else:
+            os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}/server.jar")
+        print("\n")
 clear()
 while True:
     print("1. 서버 설치\n2. 설치되어 있는 서버 실행\n3. 나가기")
@@ -281,17 +304,29 @@ while True:
                         if os.path.isdir(sub2_path):
                             server_version_list.append(os.path.join(parent_folder, sub1, sub2))
 
-        # 출력 형식 맞춤: 각 경로를 "부모/하위" 형태로 출력
-        print("현재 설치되어있는 서버는 다음과 같습니다")
-        for i, version in enumerate(server_version_list, 1):
-            print(f"{i}. {version}")
-        print("이중 어떤 서버를 실행할까요")
-        server_num = input()
-        print(server_version_list[int(server_num)-1])
+        while True:
+            print("현재 설치되어있는 서버는 다음과 같습니다")
+            for i, version in enumerate(server_version_list, 1):
+                print(f"{i}. {version}")
+            print("이중 어떤 서버를 실행할까요")
+            server_num = input()
+            try:
+                index = int(server_num) - 1
+                if not (0 <= index < len(server_version_list)):
+                    raise IndexError
+                # print(server_version_list[index])
+                break
+            except ValueError:
+                clear()
+                print("숫자를 입력해주세요.")
+            except IndexError:
+                clear()
+                print("유효한 번호를 입력해주세요.")
+
         if win:
-            server_type,version,server_folder_name = server_version_list[int(server_num)-1].split('\\')
+            server_type,version,server_folder_name = server_version_list[index].split('\\')
         else:
-            server_type,version,server_folder_name = server_version_list[int(server_num)-1].split('/')
+            server_type,version,server_folder_name = server_version_list[index].split('/')
         parts = version.split(".")
         parts = int(parts[1])
         if parts <= 16:
@@ -321,12 +356,25 @@ while True:
             elif jdk_ver == 21:
                 java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk21/jdk-21.0.6.jdk/Contents/Home/bin/java")
         # print(f"{java_path} {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_version_list[int(server_num)-1]}/server.jar")
+        clear()
         print("3초후 서버가 켜집니다. 서버를 종료하고 싶다면 save-all로 저장한 뒤 stop을 쳐주세요")
-        os.chdir(f"{os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_version_list[int(server_num)-1]}")
-        os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}\\{server_version_list[int(server_num)-1]}\\server.jar")
-        print("서버가 종료되었습니다")
+        time.sleep(3)
+        os.chdir(f"{os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_version_list[index]}")
+        if server_type == "forge":
+            if win:
+                os.system("run.bat")
+            else:
+                os.system("./run.sh")
+        else:
+            if win:
+                os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}\\{server_version_list[index]}\\server.jar")
+            else:
+                os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_version_list[index]}/server.jar")
+        print("\n서버가 종료되었습니다")
         input("계속하려면 Enter 키를 누르세요...")
+        clear()
     elif text1 == "3":
         sys.exit()
     else:
-        print("다시 입력해주세요2")
+        clear()
+        print("다시 입력해주세요\n")
