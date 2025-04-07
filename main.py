@@ -8,6 +8,7 @@ from urllib3.util import assert_fingerprint
 import shutil
 import tarfile
 import subprocess
+import sys
 
 os.makedirs(os.path.expanduser("~/Documents/Minecraft_server"), exist_ok=True)
 jdk_folder_path = os.path.expanduser(f"~/Documents/Minecraft_server/jdk")
@@ -52,11 +53,11 @@ while True:
         win=False
         break
     elif text_os == "3":
-        quit()
+        sys.exit()
     else:
         print("맞는 번호를 입력해주세요")
 def get_valid_folder_name():
-    invalid_chars = r'[<>:"/\\|?*]'
+    invalid_chars = r'[<>:"/\\|?*] '
     reserved_names = ["CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"]
 
     while True:
@@ -66,7 +67,7 @@ def get_valid_folder_name():
             continue
 
         if any(char in invalid_chars for char in text_name):
-            print("사용할 수 없는 기호가 포함되어 있습니다. 다시 입력해주세요.")
+            print("사용할 수 없는 기호(공백)가 포함되어 있습니다. 다시 입력해주세요.")
             continue
         elif text_name.upper() in reserved_names:
             print("예약된 이름은 사용할 수 없습니다. 다시 입력해주세요.")
@@ -98,12 +99,16 @@ def get_valid_url():
         except Exception as e:
             print(f"알 수 없는 오류 발생: {e}. 다시 입력해주세요.")
 
+def resource_path(relative_path):
+    base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
+    return os.path.join(base_path, relative_path)
+
 def server_download():
     global jdk_url, jdk_ver, jdk_file_type_tar
     jdk_file_type_tar = False
     clear()
-    with open("version.txt", "r", encoding="utf-8") as f:
-        versions = [line.strip() for line in f.readlines()]
+    with open(resource_path("version.txt"), "r", encoding="utf-8") as f:
+        versions = [line.strip() for line in f]
     while True:
         text_ver = input("버전을 입력해주세요 ex) 1.12.2\n만약 무슨 버전이 있는지 모르는 경우 ? 를 입력하세요\n")
         if text_ver in versions:
@@ -177,7 +182,7 @@ def server_download():
             break
         elif text_ver == "?":
             clear()
-            print(f"버전은 다음과 같습니다\n{', '.join(open("version.txt").read().splitlines())}\n")
+            print(f"버전은 다음과 같습니다\n{', '.join(open(resource_path('version.txt'), encoding='utf-8').read().splitlines())}\n")
         else:
             print("잘못된 버전입니다 다시 입력해주세요\n")
     clear()
@@ -185,19 +190,22 @@ def server_download():
     os.makedirs(os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}"), exist_ok=True)
     if server_type == "paper":
         print("3초 후 열리는 웹사이트에서 원하는 버전의 다운로드 링크 주소를 복사한 뒤 여기에 붙여넣기 하세요")
+        print(f"다운 받아야 하는 버전은 {text_ver}입니다")
         time.sleep(3)
         webbrowser.open("https://papermc.io/downloads/all")
     if server_type == "forge":
         print("3초 후 열리는 웹사이트에서 원하는 버전의 인스톨러 다운로드를 누른 후 오른쪽 위 스킵 버튼의 링크 주소를 복사한 뒤 여기에 붙여넣기 하세요")
+        print(f"다운 받아야 하는 버전은 {text_ver}입니다")
         time.sleep(3)
         webbrowser.open("https://files.minecraftforge.net/net/minecraftforge/forge/")
     if server_type == "fabric":
         print("3초 후 열리는 웹사이트에서 원하는 버전을 선택한 후 서버 다운로드 버튼의 링크 주소를 복사한 뒤 여기에 붙여넣기 하세요")
+        print(f"다운 받아야 하는 버전은 {text_ver}입니다")
         time.sleep(3)
         webbrowser.open("https://fabricmc.net/use/server/")
     url = get_valid_url()
 
-    file_name = basename(urlsplit(url).path)
+    file_name = "server.jar"
     save_path = os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}/")
     file_path = os.path.join(save_path, file_name)
 
@@ -209,7 +217,30 @@ def server_download():
             file.write(chunk)
 
     print(f"파일이 {file_path}에 저장되었습니다!\n")
-    clear()
+    print("서버 실행")
+    if win:
+        if jdk_ver == 8:
+            java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk8/bin/java.exe")
+        elif jdk_ver == 16:
+            java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk26/bin/java.exe")
+        elif jdk_ver == 17:
+            java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk17/bin/java.exe")
+        elif jdk_ver == 21:
+            java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk21/bin/java.exe")
+    else:
+        if jdk_ver == 8:
+            java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk8/jdk1.8.0_442.jdk/Contents/Home/bin/java")
+        elif jdk_ver == 16:
+            java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk16/Contents/Home/bin/java")
+        elif jdk_ver == 17:
+            java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk17/jdk-17.0.14.jdk/Contents/Home/bin/java")
+        elif jdk_ver == 21:
+            java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk21/jdk-21.0.6.jdk/Contents/Home/bin/java")
+    f = open(f"{os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}/eula.txt", 'w')
+    f.write("eula=true")
+    f.close()
+    os.chdir(f"{os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}")
+    os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}/server.jar")
 clear()
 while True:
     print("1. 서버 설치\n2. 설치되어 있는 서버 실행\n3. 나가기")
@@ -257,7 +288,45 @@ while True:
         print("이중 어떤 서버를 실행할까요")
         server_num = input()
         print(server_version_list[int(server_num)-1])
+        if win:
+            server_type,version,server_folder_name = server_version_list[int(server_num)-1].split('\\')
+        else:
+            server_type,version,server_folder_name = server_version_list[int(server_num)-1].split('/')
+        parts = version.split(".")
+        parts = int(parts[1])
+        if parts <= 16:
+            jdk_ver = 8
+        elif parts == 17:
+            jdk_ver = 16
+        elif 18 <= parts <= 20:
+            jdk_ver = 17
+        elif 21 <= parts:
+            jdk_ver = 21
+        if win:
+            if jdk_ver == 8:
+                java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk8/bin/java.exe")
+            elif jdk_ver == 16:
+                java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk16/bin/java.exe")
+            elif jdk_ver == 17:
+                java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk17/bin/java.exe")
+            elif jdk_ver == 21:
+                java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk21/bin/java.exe")
+        else:
+            if jdk_ver == 8:
+                java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk8/jdk1.8.0_442.jdk/Contents/Home/bin/java")
+            elif jdk_ver == 16:
+                java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk16/Contents/Home/bin/java")
+            elif jdk_ver == 17:
+                java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk17/jdk-17.0.14.jdk/Contents/Home/bin/java")
+            elif jdk_ver == 21:
+                java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk21/jdk-21.0.6.jdk/Contents/Home/bin/java")
+        # print(f"{java_path} {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_version_list[int(server_num)-1]}/server.jar")
+        print("3초후 서버가 켜집니다. 서버를 종료하고 싶다면 save-all로 저장한 뒤 stop을 쳐주세요")
+        os.chdir(f"{os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_version_list[int(server_num)-1]}")
+        os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}\\{server_version_list[int(server_num)-1]}\\server.jar")
+        print("서버가 종료되었습니다")
+        input("계속하려면 Enter 키를 누르세요...")
     elif text1 == "3":
-        quit()
+        sys.exit()
     else:
         print("다시 입력해주세요2")
