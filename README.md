@@ -1,4 +1,4 @@
-# EMSR(Easy Minecraft Server Runner)]
+# EMSR(Easy Minecraft Server Runner)
 
 마인크래프트의 클라이언트를 관리하는 런쳐들은 많지만
 
