@@ -2,6 +2,7 @@ import os
 import webbrowser
 import time
 import requests
+from requests.exceptions import ChunkedEncodingError
 from urllib.parse import urlsplit
 import shutil
 import tarfile
@@ -96,12 +97,28 @@ def get_valid_url():
         except Exception as e:
             print(f"알 수 없는 오류 발생: {e}. 다시 입력해주세요.")
 
-def resource_path(relative_path):
+def resource_path(relative_path): # version txt파일 열고 리스트 세이브
     base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
     return os.path.join(base_path, relative_path)
 
+def find_file(folder_path, file_name):
+    for root, dirs, files in os.walk(folder_path):
+        if file_name in files:
+            print(os.path.join(root, file_name))
+            return os.path.join(root, file_name)
+    print("file not found")
+
+def find_forge_files(folder_path):
+    result = ""
+    for file in os.listdir(folder_path):
+        full_path = os.path.join(folder_path, file)
+        if os.path.isfile(full_path) and 'forge' in file:
+            result = file
+    return result
+
 def server_download():
-    global jdk_url, jdk_ver, jdk_file_type_tar
+    global jdk_url, jdk_ver, jdk_file_type_tar, lines
+    lines = []
     jdk_file_type_tar = False
     clear()
     os.chdir(server_list_folder)
@@ -206,16 +223,24 @@ def server_download():
     file_name = "server.jar"
     save_path = os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}/")
     file_path = os.path.join(save_path, file_name)
-
+    print("서버 파일 설치중")
     # 파일 다운로드 및 저장
-    response = requests.get(url, stream=True)
-
-    with open(file_path, "wb") as file:
-        for chunk in response.iter_content(chunk_size=8192):
-            file.write(chunk)
+    retries = 3
+    for attempt in range(retries):
+        try:
+            response = requests.get(url, stream=True, timeout=10)
+            with open(file_path, "wb") as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        file.write(chunk)
+            break  # 성공 시 루프 종료
+        except ChunkedEncodingError as e:
+            print(f"재시도 {attempt + 1}/{retries} 실패: {e}")
+            time.sleep(1)
+    else:
+        raise Exception("다운로드 실패")
 
     print(f"파일이 {file_path}에 저장되었습니다!")
-    print("서버 실행")
     if win:
         if jdk_ver == 8:
             java_path = os.path.expanduser("~/Documents/Minecraft_server/jdk/jdk8/bin/java.exe")
@@ -238,32 +263,88 @@ def server_download():
     f.write("eula=true")
     f.close()
     os.chdir(f"{os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}")
-    if server_type == "forge":
+
+    print('할당할 메모리를 "(최소),(최대)" 형태로 적어주세요')
+    print("메모리는 G단위입니다")
+    while 1:
+        try:
+            memory_min, memory_max = input().split(',')
+            if not (memory_min.strip().isdigit() and memory_max.strip().isdigit()):
+                raise ValueError("정수가 아닙니다.")
+            memory_min = int(memory_min)
+            memory_max = int(memory_max)
+            break
+        except ValueError as e:
+            print(f"입력 오류: {e}")
+
+    if server_type == "forge" and parts > 16: # 포지 1.17 이상
         os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}/server.jar --installServer {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}")
         if win:
             path = os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}/run.bat")
+            with open(path, 'r') as f:
+                lines = f.readlines()
+            del lines[1:]
+            lines[0] = "@echo off"
+            lines[1] = f"{java_path} -Xms{memory_min}G -Xmx{memory_max}G @{find_file(f"{os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}", "win_args.txt")} %*"
+            lines[2] = "pause"
+            with open(path, 'w') as f:
+                f.writelines(lines)
+            os.system("run.bat")
+
         else:
             path = os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}/run.sh")
-        with open(path, 'r') as f:
-            lines = f.readlines()
-        line_split = lines[5].split(' ')
-        line_split[0] = java_path  # java를 java_path로 교체
-        lines[5] = ' '.join(line_split)
-        with open(path, 'w') as f:
-            f.writelines(lines)
+            with open(path, 'r') as f:
+                lines = f.readlines()
+            del lines[1:]
+            lines[0] = f'{java_path} -Xms{memory_min}G -Xmx{memory_max}G @{find_file(f"{os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}", "unix_args.txt")} "$@"'
+            with open(path, 'w') as f:
+                f.writelines(lines)
+            os.system("./run.sh")
+        print("\n서버가 종료되었습니다")
+        input("계속하려면 Enter 키를 누르세요...")
+        clear()
+
+    else: # 포지버전이 16이하거나 다른 서버
         if win:
+            path = os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}/run.bat")
+            f = open(path, 'w')
+            lines.append('@echo off')
+            if server_type == "forge":
+                os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}/server.jar --installServer {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}")
+                forge = find_forge_files(os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}"))
+                lines.append(f'{java_path} -Xms{memory_min}G -Xmx{memory_max}G -jar {forge} %*')
+            else:
+                lines.append(f'{java_path} -Xms{memory_min}G -Xmx{memory_max}G -jar server.jar %*')
+            lines.append('pause')
+            with open(path, 'w') as f:
+                f.writelines(line + '\n' for line in lines)
+            f.close()
+            print("3초후 서버가 열립니다. 만약 server.properties를 수정하고 싶은 경우 서버가 완전히 열린후 stop으로 서버를 정지한 뒤 수정해주세요")
+            time.sleep(3)
             os.system("run.bat")
         else:
+            print("비밀번호를 입력하라는 텍스트가 나오면 입력해주세요. \njdk를 실행시키기 위한 권한을 부여하는 작업입니다.")
+            time.sleep(1)
+            os.system(f"sudo chmod -R +x {java_path}")
+            os.system(f"sudo chmod -R +x {os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}")}")
+            path = os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}/run.sh")
+            f = open(path, 'w')
+            if server_type == "forge":
+                os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}/server.jar --installServer {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}")
+                forge = find_forge_files(os.path.expanduser(f"~/Documents/Minecraft_server/{server_type}/{text_ver}/{text_name}"))
+                lines.append(f'{java_path} -Xms{memory_min}G -Xmx{memory_max}G -jar {forge} "$@"')
+            else:
+                lines.append(f'{java_path} -Xms{memory_min}G -Xmx{memory_max}G -jar server.jar "$@"')
+            with open(path, 'w') as f:
+                f.writelines(lines)
+            f.close()
+            print("3초후 서버가 열립니다. 만약 server.properties를 수정하고 싶은 경우 서버가 완전히 열린후 stop으로 서버를 정지한 뒤 수정해주세요")
+            time.sleep(3)
+            os.system("sudo chmod +x run.sh")
             os.system("./run.sh")
-        print("\n\n")
-    else:
-        print("3초후 서버가 열립니다. 만약 server.properties를 수정하고 싶은 경우 서버가 완전히 열린후 stop으로 서버를 정지한 뒤 수정해주세요")
-        time.sleep(3)
-        if win:
-            os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}\\{server_type}\\{text_ver}\\{text_name}\\server.jar")
-        else:
-            os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_type}/{text_ver}/{text_name}/server.jar")
-        print("\n")
+        print("\n서버가 종료되었습니다")
+        input("계속하려면 Enter 키를 누르세요...")
+        clear()
 clear()
 while True:
     print("1. 서버 설치\n2. 설치되어 있는 서버 실행\n3. 나가기")
@@ -303,14 +384,20 @@ while True:
                         sub2_path = os.path.join(sub1_path, sub2)
                         if os.path.isdir(sub2_path):
                             server_version_list.append(os.path.join(parent_folder, sub1, sub2))
-
+        if not server_version_list:
+            print("설치되어 있는 서버가 없습니다.")
+            continue
         while True:
             print("현재 설치되어있는 서버는 다음과 같습니다")
+            print("처음화면으로 돌아가고 싶으면 X를 입력해주세요")
             for i, version in enumerate(server_version_list, 1):
                 print(f"{i}. {version}")
             print("이중 어떤 서버를 실행할까요")
-            server_num = input()
+
             try:
+                server_num = input()
+                if server_num.lower() == "x":
+                    break
                 index = int(server_num) - 1
                 if not (0 <= index < len(server_version_list)):
                     raise IndexError
@@ -322,7 +409,12 @@ while True:
             except IndexError:
                 clear()
                 print("유효한 번호를 입력해주세요.")
-
+            except UnicodeDecodeError:
+                clear()
+                print("유니코드 에러\n한영키 확인하고 다시 입력해주세요")
+        if server_num.lower() == "x":
+            clear()
+            continue
         if win:
             server_type,version,server_folder_name = server_version_list[index].split('\\')
         else:
@@ -360,16 +452,11 @@ while True:
         print("3초후 서버가 켜집니다. 서버를 종료하고 싶다면 save-all로 저장한 뒤 stop을 쳐주세요")
         time.sleep(3)
         os.chdir(f"{os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_version_list[index]}")
-        if server_type == "forge":
-            if win:
-                os.system("run.bat")
-            else:
-                os.system("./run.sh")
+        if win:
+            os.system("run.bat")
         else:
-            if win:
-                os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}\\{server_version_list[index]}\\server.jar")
-            else:
-                os.system(f"{java_path} -jar {os.path.expanduser(f"~/Documents/Minecraft_server")}/{server_version_list[index]}/server.jar")
+            os.system("sudo chmod +x run.sh")
+            os.system("./run.sh")
         print("\n서버가 종료되었습니다")
         input("계속하려면 Enter 키를 누르세요...")
         clear()
